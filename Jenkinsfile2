@@ -1,0 +1,72 @@
+pipeline {
+    agent any
+
+    parameters {
+        string(name: 'GIT_BRANCH', defaultValue: 'main', description: 'Git branch to build')
+        string(name: 'MVN_TEST_PHASE', defaultValue: 'test', description: 'Maven test phase')
+        string(name: 'MVN_PACKAGE_PHASE', defaultValue: 'package', description: 'Maven package phase')
+    }
+
+    environment {
+        PROJECT_NAME = "capge-jenkins"
+        GIT_REPO_URL = "https://github.com/SRINJOY-2004/capge-jenkins.git"
+        SONAR_ENV = "sonarqube"
+        NOTIFY_EMAIL = "srinjoy.kundu48@gmail.com"
+    }
+
+    stages {
+
+        stage('Git Checkout') {
+            steps {
+                git branch: "${params.GIT_BRANCH}",
+                    credentialsId: 'github-jenkins',
+                    url: "${env.GIT_REPO_URL}"
+            }
+        }
+
+        stage('Test') {
+            steps {
+                sh "mvn ${params.MVN_TEST_PHASE}"
+            }
+        }
+
+        stage('SonarQube Scan') {
+            steps {
+                withSonarQubeEnv("${env.SONAR_ENV}") {
+                    sh 'mvn clean verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar'
+                }
+            }
+        }
+
+        stage('Package') {
+            steps {
+                sh "mvn ${params.MVN_PACKAGE_PHASE}"
+                archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
+            }
+        }
+    }
+
+    post {
+        always {
+            emailext(
+                to: "${env.NOTIFY_EMAIL}",
+                subject: "Build ${currentBuild.currentResult}: ${env.JOB_NAME}",
+                body: """
+Hello,
+
+The Jenkins build has completed.
+
+Project     : ${env.PROJECT_NAME}
+Job Name    : ${env.JOB_NAME}
+Build No    : ${env.BUILD_NUMBER}
+Branch      : ${params.GIT_BRANCH}
+Status      : ${currentBuild.currentResult}
+Build URL   : ${env.BUILD_URL}
+
+Regards,
+Jenkins
+"""
+            )
+        }
+    }
+}
