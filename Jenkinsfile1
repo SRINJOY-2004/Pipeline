@@ -6,7 +6,7 @@ pipeline {
         stage('Git Checkout') {
             steps {
                 git branch: 'main',
-                    credentialsId: 'jenkins',
+                    credentialsId: 'git02',
                     url: 'https://github.com/SRINJOY-2004/capge-jenkins.git'
             }
         }
